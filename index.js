@@ -75,11 +75,11 @@ app.post('/api/users', (req, res)=>{
 
 // get all user's data
 app.get('/api/users', (req, res)=>{
-  User.find((err, data)=>{
-    res.json({
+  User.find({},(err, data)=>{
+    res.json([{
       id : data.id,
       username : data.username
-    })
+    }])
   })
 })
 // save user's exercise data
@@ -138,12 +138,12 @@ app.get('/api/users/:_id/logs',(req, res)=>{
   })
 })
 
-app.get('/api/users/:_id/logs?from&to&limit', (req, res)=>{
-  res.send(req.query)
-  // Exercise.where(log.date).gte(new Date(from)).lte(new Date(to))
-  //   .where("log").slice(+limit)
-  //   .exec(/*callback*/)
-})
+// app.get('/api/users/:_id/logs?from&to&limit', (req, res)=>{
+//   res.send(req.query)
+//   // Exercise.where(log.date).gte(new Date(from)).lte(new Date(to))
+//   //   .where("log").slice(+limit)
+//   //   .exec(/*callback*/)
+// })
 
 
 
