@@ -77,7 +77,7 @@ app.post('/api/users', (req, res)=>{
 app.get('/api/users', (req, res)=>{
   User.find({},(err, data)=>{
     res.json([{
-      id : data.id,
+      _id : data._id,
       username : data.username
     }])
   })
@@ -109,7 +109,7 @@ app.post('/api/users/:_id/exercises', (req, res)=>{
       if(err) return console.log(err)
       res.json({
         id : data2.user.id,
-        username : data2.username,
+        username : data2.user.username,
         description : data2.description,
         duration : data2.duration,
         date : data2.date
