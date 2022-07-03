@@ -80,43 +80,23 @@ app.post("/api/users/:id/exercises", (req, res) => {
   })
 })
 
-app.get("/api/users/:id/logs", (req, res) => {
-  const { from, to, limit } = req.query;
-  const {id} = req.params;
-  User.findById(id, (err, userData) => {
-    if(err || !userData) {
-      res.send("Could not find user");
-    }else{
-      let dateObj = {}
-      if(from){
-        dateObj["$gte"] = new Date(from)
-      }
-      if(to){
-        dateObj["$lte"] = new Date(to)
-      }
-      let filter = {
-        userId: id
-      }
-      if(from || to ){
-        filter.date = dateObj
-      }
-      let nonNullLimit = limit ?? 500
-      Exercise.find(filter).limit(+nonNullLimit).exec((err, data) => {
-        if(err || !data){
-          res.json([])
-        }else{
-          const count = data.length
-          const rawLog = data
-          const {username, _id} = userData;
-          const log= rawLog.map((l) => ({
-            description: l.description,
-            duration: l.duration,
-            date: l.date.toDateString()
-          }))
-          res.json({username, count, _id, log})
-        }
+app.get('/api/users/:_id/logs',(req, res)=>{
+  const id_user = req.params.id
+  Exercise.find({id : id_user}, (err, data)=>{
+    let logs = []
+    for(let i = 0; i < data.length; i++){
+      logs.push( {
+        description : data[i].description,
+            duration : data[i].duration,
+            date : data[i].date
       })
-    } 
+    }
+    res.json({
+      username : data[0].user.username,
+      count : data.length,
+      _id : data[0].user.id,
+      log : logs
+    })
   })
 })
 
