@@ -2,148 +2,134 @@ const express = require('express')
 const app = express()
 const cors = require('cors')
 require('dotenv').config()
-const mongoose = require('mongoose')
-const bodyParser = require('body-parser')
-
-mongoose.connect('mongodb+srv://freecodecamp_mongo:wYJYEfQY3rlKMLYu@cluster0.hoyf0.mongodb.net/exercise_tracker?retryWrites=true&w=majority')
-
-let userSchema = new mongoose.Schema({
-  username : {
-    type : String,
-    required : true
-  }
-})
-
-let exerciseSchema = new mongoose.Schema({
-  user : {
-    username : {
-      type : String,
-      required : true
-    },
-    id : Object
-},
-  description : {
-    type : String,
-    required : true
-  },
-  duration : {
-    type : Number,
-    required : true
-  },
-  date : String
-})
-
-let logSchema = new mongoose.Schema({
-  username : String,
-  count : Number,
-  log : [{
-    description : String,
-    duration : Number, 
-    date : Date
-  }]
-})
-
-let User = mongoose.model('User',userSchema)
-let Exercise = mongoose.model('Exercise',exerciseSchema)
-let Log = mongoose.model('Log',logSchema)
+const mongoose = require("mongoose");
+const bodyParser = require("body-parser")
 
 
+mongoose.connect('mongodb+srv://freecodecamp_mongo:wYJYEfQY3rlKMLYu@cluster0.hoyf0.mongodb.net/exercise_tracker?retryWrites=true&w=majority', {
+  useUnifiedTopology: true,
+  useNewUrlParser: true,
+});
 
+const { Schema } = mongoose;
+
+const ExerciseSchema = new Schema({
+  userId: { type: String, required: true },
+  description: String,
+  duration: Number,
+  date: Date,
+});
+const UserSchema = new Schema({
+  username: String,
+});
+const User = mongoose.model("User", UserSchema);
+const Exercise = mongoose.model("Exercise", ExerciseSchema);
+
+
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 app.use(cors())
 app.use(express.static('public'))
-app.use(bodyParser.urlencoded({ extended: true }))
-
-// index
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
 
-// post user data
-app.post('/api/users', (req, res)=>{
-  let the_user = new User({
-    username : req.body.username
-  })
 
-  the_user.save((err, data)=>{
-    if(err) return console.log(err)
-    res.json({
-      username : data.username,
-      _id : data._id
-    })
+app.post("/api/users", (req, res) => {
+  console.log(`req.body`, req.body)
+  const newUser = new User({
+    username: req.body.username
   })
-})
-
-// get all user's data
-app.get('/api/users', (req, res)=>{
-  User.find({},(err, data)=>{
-    res.json([{
-      _id : data._id,
-      username : data.username
-    }])
-  })
-})
-// save user's exercise data
-app.post('/api/users/:_id/exercises', (req, res)=>{
-  const id_user = req.params.id
-  User.findOne(id_user,(err, data)=>{
-    const day = ['sun','mon','tue','wed','thu','fri','sat']
-    const month = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
-    let date;
-    let string_date;
-    if(req.body.date){
-      date = new Date(req.body.date)
+  newUser.save((err, data) => {
+    if(err || !data){
+      res.send("There was an error saving the user")
     }else{
-      date = new Date()
+      res.json(data)
     }
-    string_date = `${day[date.getDay()]} ${month[date.getMonth()]} ${date.getDate()} ${date.getFullYear()}`
-    let the_exercise = new Exercise({
-        user : {
-          username : data.username,
-          id : data._id
-        },
-        description : req.body.description,
-        duration : req.body.duration,
-        date : string_date
-      })
-    the_exercise.save((err, data2)=>{
-      if(err) return console.log(err)
-      res.json({
-        id : data2.user.id,
-        username : data2.user.username,
-        description : data2.description,
-        duration : data2.duration,
-        date : data2.date
-      })
-    })
   })
 })
 
-app.get('/api/users/:_id/logs',(req, res)=>{
-  const id_user = req.params.id
-  Exercise.find({id : id_user}, (err, data)=>{
-    let logs = []
-    for(let i = 0; i < data.length; i++){
-      logs.push( {
-        description : data[i].description,
-            duration : data[i].duration,
-            date : data[i].date
+app.post("/api/users/:id/exercises", (req, res) => {
+  const id = req.params.id
+  const {description, duration, date} = req.body
+  User.findById(id, (err, userData) => {
+    if(err || !userData) {
+      res.send("Could not find user");
+    }else{
+      const newExercise = new Exercise({
+        userId: id, 
+        description,
+        duration,
+        date: new Date(date), 
+      })
+      newExercise.save((err, data) => {
+        if(err || !data) {
+          res.send("There was an error saving this exercise")
+        }else {
+          const { description, duration, date, _id} = data;
+          res.json({
+            username: userData.username,
+            description,
+            duration,
+            date: date.toDateString(),
+            _id: userData.id
+          })
+        }
       })
     }
-    res.json({
-      username : data[0].user.username,
-      count : data.length,
-      _id : data[0].user.id,
-      log : logs
-    })
   })
 })
 
-// app.get('/api/users/:_id/logs?from&to&limit', (req, res)=>{
-//   res.send(req.query)
-//   // Exercise.where(log.date).gte(new Date(from)).lte(new Date(to))
-//   //   .where("log").slice(+limit)
-//   //   .exec(/*callback*/)
-// })
+app.get("/api/users/:id/logs", (req, res) => {
+  const { from, to, limit } = req.query;
+  const {id} = req.params;
+  User.findById(id, (err, userData) => {
+    if(err || !userData) {
+      res.send("Could not find user");
+    }else{
+      let dateObj = {}
+      if(from){
+        dateObj["$gte"] = new Date(from)
+      }
+      if(to){
+        dateObj["$lte"] = new Date(to)
+      }
+      let filter = {
+        userId: id
+      }
+      if(from || to ){
+        filter.date = dateObj
+      }
+      let nonNullLimit = limit ?? 500
+      Exercise.find(filter).limit(+nonNullLimit).exec((err, data) => {
+        if(err || !data){
+          res.json([])
+        }else{
+          const count = data.length
+          const rawLog = data
+          const {username, _id} = userData;
+          const log= rawLog.map((l) => ({
+            description: l.description,
+            duration: l.duration,
+            date: l.date.toDateString()
+          }))
+          res.json({username, count, _id, log})
+        }
+      })
+    } 
+  })
+})
+
+app.get("/api/users", (req, res) => {
+  User.find({}, (err, data) => {
+    if(!data){
+      res.send("No users")
+    }else{
+      res.json(data)
+    }
+  })
+})
+
 
 
 
